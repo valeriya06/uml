@@ -1,0 +1,76 @@
+@startuml sequence_one
+actor Customer
+participant "Web UI" as WebUI
+participant "Order Controller" as OrderCtrl
+participant "Payment Service" as PaymentSvc
+database Database
+participant "Notification Service" as NotificationSvc 
+actor Manager
+
+autonumber
+
+group Изменение товара в корзине
+    note right of Customer 
+      Пользователь может изменить состав корзины перед оформлением.
+    end note
+    
+    Customer -> WebUI : Изменить состав корзины
+    activate WebUI
+    WebUI -> OrderCtrl : Обновление корзины
+    OrderCtrl [#green]-> Database : Обновление корзины
+    activate Database
+    Database -[#green]-> OrderCtrl : OK
+    deactivate Database
+    OrderCtrl --> WebUI : OK
+    
+    WebUI --> Customer : Подтверждение изменений
+deactivate WebUI
+end
+
+group Оформление заказа
+    Customer -> WebUI : Запрос на оформление заказа
+    activate WebUI
+    WebUI -> OrderCtrl : Передача данных заказа
+    activate OrderCtrl
+    OrderCtrl [#green]-> Database :Cохранение заказа
+    activate Database
+    Database -[#green]-> OrderCtrl : OK
+    deactivate Database
+end
+
+group Оплата
+    OrderCtrl -> PaymentSvc : Проведение платежа
+    activate PaymentSvc
+
+    alt Успешная оплата
+        PaymentSvc -[#green]-> OrderCtrl : Платёж успешен
+        OrderCtrl [#green]-> Database : Статус заказа = "оплачен"
+        activate Database
+        Database -[#green]-> OrderCtrl : OK
+        deactivate Database
+        OrderCtrl -[#lightblue]-> NotificationSvc : Уведомление о том, что заказ оплачен
+    else Ошибка оплаты
+        PaymentSvc -[#red]-> OrderCtrl : Ошибка платежа
+        deactivate PaymentSvc
+        OrderCtrl [#green]-> Database : Статус заказа = "предварительный"
+        activate Database
+        Database -[#green]-> OrderCtrl : OK
+        deactivate Database
+    end
+
+    deactivate PaymentSvc
+end
+
+group Подтверждение заказа
+    OrderCtrl --> WebUI : Подтверждение заказа
+    deactivate OrderCtrl
+
+    WebUI --> Customer : Уведомление о статусе заказа
+end
+
+group Уведомление менеджера
+    NotificationSvc --> Manager: Уведомление о статусе заказа
+end
+
+deactivate WebUI
+@enduml
